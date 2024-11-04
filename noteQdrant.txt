@@ -1,0 +1,257 @@
+// List all collections
+GET collections
+
+// Get collection info
+GET collections/collection_name
+
+PUT collections/first_test
+{
+  "vectors": {
+    "size": 4,
+    "distance": "Dot"
+  }
+}
+
+
+PUT collections/test_collection/points
+{
+  "points": [
+    {
+      "id": 1,
+      "vector": [0.05, 0.61, 0.76, 0.74],
+      "payload": {"city": "Berlin"}
+    },
+    {
+      "id": 2,
+      "vector": [0.19, 0.81, 0.75, 0.11],
+      "payload": {"city": "London"}
+    },
+    {
+      "id": 3,
+      "vector": [0.36, 0.55, 0.47, 0.94],
+      "payload": {"city": "Moscow"}
+    },
+    {
+      "id": 4,
+      "vector": [0.18, 0.01, 0.85, 0.80],
+      "payload": {"city": "New York"}
+    },
+    {
+      "id": 5,
+      "vector": [0.24, 0.18, 0.22, 0.44],
+      "payload": {"city": "Beijing"}
+    },
+    {
+      "id": 6,
+      "vector": [0.35, 0.08, 0.11, 0.44],
+      "payload": {"city": "Mumbai"}
+    }
+  ]
+}
+
+POST collections/test_collection/points/search
+{
+  "vector": [0.2, 0.1, 0.9, 0.7],
+  "limit": 3,
+  "with_payload": true
+}
+
+POST collections/test_collection/points/search
+{
+  "vector": [0.2, 0.1, 0.9, 0.7],
+  "filter": {
+    "must": [
+      {
+       "key": "city",
+       "match": { "value": "London" }
+      }
+    ]
+  },
+  "limit": 3,
+  "with_payload": true
+}
+
+POST /collections/demo/points/scroll
+{
+  "filter": {
+    "must": [
+      {
+        "key": "city",
+        "match": { "value": "London" }
+      }, {
+        "key": "color",
+        "match": { "value": "red" }
+      }
+    ]
+  }
+}
+
+POST /collections/demo/points/scroll
+{
+  "filter": {
+    "should": [
+      {
+        "key": "city",
+        "match": { "value": "London" }
+      }, {
+        "key": "color",
+        "match": { "value": "red" }
+      }
+    ]
+  }
+}
+
+POST /collections/demo/points/scroll
+{
+  "filter": {
+    "must_not": [
+      {
+        "key": "city",
+        "match": { "value": "London" }
+      }, {
+        "key": "color",
+        "match": { "value": "red" }
+      }
+    ]
+  }
+}
+
+POST /collections/demo/points/scroll
+{
+  "filter": {
+    "must": [
+      {
+        "key": "city",
+        "match": { "value": "London" }
+      }
+    ],
+    "must_not": [
+      {
+        "key": "color",
+        "match": { "value": "red" }
+      }
+    ]
+  }
+}
+
+POST /collections/demo/points/scroll
+{
+  "filter": {
+    "must_not": [
+      {
+        "must": [
+          {
+            "key": "city",
+            "match": { "value": "London" }
+          }, {
+            "key": "color",
+            "match": { "value": "red" }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+POST /collections/first_test/points/query
+{
+    "query": [0.2, 0.1, 0.9, 0.7],
+    "with_vectors": true,
+    "with_payload": true,
+    "limit": 10,
+    "offset": 3
+}
+
+offset -> skip first 3 results
+
+==================================================================================================================
+CREATE VIRTUAL ENVIRONMENT
+
+python venv myenv
+source myenv/bin/activate
+pip install -r .\requirements.txt
+
+=====================================================================================================
+Embed Audio
+from fastembed import TextEmbedding, ImageEmbedding
+from transformers import Wav2Vec2Model, Wav2Vec2Tokenizer
+import torch
+
+documents = [{"caption": "A photo of a bird",
+              "image": "assets/bird_image.jpg"},
+ {"caption": "A picture with a car",
+              "image": "assets/car_image.jpg"},
+ {"caption": "A photo of a cute dog",
+              "image": "assets/dog_image.jpg"}
+]
+
+text_model_name = "Qdrant/clip-ViT-B-32-text" #CLIP text encoder
+text_model = TextEmbedding(model_name=text_model_name)
+text_embeddings_size = text_model._get_model_description(text_model_name)["dim"] #dimension of text embeddings, produced by CLIP text encoder (512)
+texts_embeded = list(text_model.embed([document["caption"] for document in documents])) #embedding captions with CLIP text encoder
+
+image_model_name = "Qdrant/clip-ViT-B-32-vision" #CLIP image encoder
+image_model = ImageEmbedding(model_name=image_model_name)
+image_embeddings_size = image_model._get_model_description(image_model_name)["dim"] #dimension of image embeddings, produced by CLIP image encoder (512)
+images_embeded = list(image_model.embed([document["image"] for document in documents]))  #embedding images with CLIP image encoder
+
+# Ví dụ sử dụng
+audio_embedding = embed_audio("path/to/audio/file.wav")
+# Khởi tạo mô hình nhúng cho âm thanh và tokenizer
+audio_model_name = "facebook/wav2vec2-base-960h"  # Thay đổi thành tên mô hình nhúng âm thanh phù hợp
+tokenizer = Wav2Vec2Tokenizer.from_pretrained(audio_model_name)
+model = Wav2Vec2Model.from_pretrained(audio_model_name)
+# Hàm để nhúng âm thanh
+def audio_model(file_path):
+    # Đọc âm thanh và chuyển đổi thành input cho mô hình
+    audio_input = tokenizer(file_path, return_tensors="pt", padding="longest", truncation=True)
+    with torch.no_grad():
+        embeddings = model(**audio_input).last_hidden_state
+    return embeddings
+
+audio_embeded = list(audio_model.embed([document["audio"] for document in documents]))  # Nhúng các âm thanh
+
+git config --global user.email "chuthianh2202chuthianh22@gmail.com"
+git config --global user.name "chuanh1214"
+
+use "git rm --cached <file>..." to unstage
+
+==============================================================================================================
+Steps to Implement RAG with PDF in Qdrant
+1.Extract Text:
+
+import fitz  # PyMuPDF
+doc = fitz.open("example.pdf")
+text_chunks = []
+for page in doc:
+    text_chunks.append(page.get_text())
+	
+2.Generate Embeddings:
+
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+embeddings = model.encode(text_chunks)
+
+3.Store in Qdrant:
+
+from qdrant_client import QdrantClient
+qdrant = QdrantClient(url='http://localhost:6333')
+
+qdrant.create_collection("pdf_documents")
+qdrant.upload_collection("pdf_documents", embeddings)
+
+4.Querying and Generating Response:
+query = "What is the main topic of the document?"
+query_embedding = model.encode([query])
+results = qdrant.search("pdf_documents", query_embedding)
+
+context = " ".join([chunk for chunk in results['matches']])
+response = generate_response(context)  # Use your generative model
+
+======================================================================================================
+HUGGING FACE
+bg embeddings huggingffcae
+
+======================================================================================================
+What is AutoML?
+What Machine learning models are generated by?
